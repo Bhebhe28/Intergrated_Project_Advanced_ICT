@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RuralAgriConnect — Offline Farm Advisory System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --forest: #1B4332;
+  --forest-mid: #2D6A4F;
+  --moss: #52B788;
+  --mint: #95D5B2;
+  --earth: #C8963C;
+  --soil: #8B5E3C;
+  --cream: #F8F4EE;
+  --sand: #EDE8DF;
+  --white: #FFFFFF;
+  --dark: #0D1F17;
+  --red: #C0392B;
+  --orange: #E67E22;
+  --yellow: #F1C40F;
+  --blue: #2980B9;
+  --muted: #6B7C6E;
+  --shadow: 0 4px 24px rgba(13,31,23,0.12);
+  --shadow-lg: 0 12px 48px rgba(13,31,23,0.18);
+  --radius: 14px;
+  --radius-sm: 8px;
+  --sidebar-w: 260px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--dark); min-height:100vh; }
+h1,h2,h3,h4 { font-family:'DM Serif Display',serif; }
+
+/* ── AUTH SCREEN ── */
+#auth-screen {
+  position:fixed; inset:0; background:linear-gradient(135deg,var(--forest) 0%,var(--forest-mid) 50%,var(--dark) 100%);
+  display:flex; align-items:center; justify-content:center; z-index:1000; overflow:hidden;
+}
+#auth-screen::before {
+  content:''; position:absolute; inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2352B788' fill-opacity='0.06'%3E%3Cpath d='M40 40c0-11 9-20 20-20s20 9 20 20-9 20-20 20-20-9-20-20zm-40 0C0 29 9 20 20 20s20 9 20 20-9 20-20 20S0 51 0 40z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.auth-card {
+  position:relative; background:var(--white); border-radius:24px; padding:48px 40px;
+  width:100%; max-width:440px; box-shadow:0 32px 80px rgba(0,0,0,0.4);
+}
+.auth-logo { display:flex; align-items:center; gap:12px; margin-bottom:32px; }
+.auth-logo-icon { width:48px; height:48px; background:var(--forest); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+.auth-logo h1 { font-size:22px; color:var(--forest); }
+.auth-logo span { font-size:12px; color:var(--muted); font-family:'DM Sans',sans-serif; display:block; margin-top:-2px; }
+.auth-tabs { display:flex; background:var(--sand); border-radius:10px; padding:4px; margin-bottom:28px; }
+.auth-tab { flex:1; text-align:center; padding:10px; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px; color:var(--muted); transition:all .2s; border:none; background:none; }
+.auth-tab.active { background:var(--white); color:var(--forest); box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+.form-group { margin-bottom:18px; }
+.form-group label { display:block; font-size:13px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
+.form-group input, .form-group select {
+  width:100%; padding:13px 16px; border:2px solid var(--sand); border-radius:10px;
+  font-size:15px; font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--dark);
+  transition:border-color .2s; outline:none;
+}
+.form-group input:focus, .form-group select:focus { border-color:var(--moss); }
+.btn-primary {
+  width:100%; padding:15px; background:var(--forest); color:var(--white); border:none; border-radius:12px;
+  font-size:16px; font-weight:700; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .2s;
+  letter-spacing:.3px;
+}
+.btn-primary:hover { background:var(--forest-mid); transform:translateY(-1px); box-shadow:0 8px 24px rgba(27,67,50,.3); }
+.auth-error { background:#FEF2F2; border:1px solid #FCA5A5; color:var(--red); padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:14px; display:none; }
+.lockout-msg { text-align:center; color:var(--red); font-size:14px; margin-top:10px; display:none; }
+.pwd-wrapper { position:relative; }
+.pwd-toggle { position:absolute; right:14px; top:50%; transform:translateY(-50%); cursor:pointer; color:var(--muted); font-size:18px; background:none; border:none; }
+
+/* ── MAIN LAYOUT ── */
+#app { display:flex; height:100vh; overflow:hidden; }
+.sidebar {
+  width:var(--sidebar-w); background:var(--forest); color:var(--white); display:flex; flex-direction:column;
+  flex-shrink:0; overflow-y:auto; transition:transform .3s;
+}
+.sidebar-logo { padding:24px 20px 8px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:16px; }
+.sidebar-logo-icon { width:36px; height:36px; background:var(--moss); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.sidebar-logo h2 { font-size:15px; color:var(--white); line-height:1.2; }
+.sidebar-user { padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.1); }
+.sidebar-user-name { font-weight:600; font-size:14px; }
+.sidebar-user-role { font-size:12px; color:var(--mint); opacity:.8; }
+.sidebar-badge { display:inline-block; background:var(--earth); color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; margin-top:4px; font-weight:700; text-transform:uppercase; }
+nav { flex:1; padding:12px 0; }
+.nav-section { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--mint); opacity:.5; padding:16px 20px 6px; font-weight:700; }
+.nav-item {
+  display:flex; align-items:center; gap:12px; padding:12px 20px; cursor:pointer;
+  transition:all .15s; color:rgba(255,255,255,.75); font-size:14px; font-weight:500; border:none; background:none; width:100%; text-align:left;
+}
+.nav-item:hover { background:rgba(255,255,255,.08); color:#fff; }
+.nav-item.active { background:var(--moss); color:#fff; }
+.nav-item .icon { font-size:18px; width:20px; text-align:center; }
+.nav-badge { margin-left:auto; background:var(--red); color:#fff; font-size:10px; padding:2px 7px; border-radius:20px; font-weight:700; }
+.sidebar-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,.1); }
+.btn-logout { width:100%; padding:10px; background:rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.15); border-radius:8px; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; }
+.btn-logout:hover { background:rgba(192,57,43,.6); border-color:var(--red); }
+
+/* ── MAIN CONTENT ── */
+.main { flex:1; overflow-y:auto; background:var(--cream); }
+.topbar {
+  background:var(--white); border-bottom:1px solid var(--sand); padding:16px 28px;
+  display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10;
+}
+.topbar h2 { font-size:22px; }
+.topbar-right { display:flex; align-items:center; gap:16px; }
+.weather-pill {
+  display:flex; align-items:center; gap:8px; background:var(--cream); border:1px solid var(--sand); border-radius:50px; padding:8px 16px; font-size:13px; font-weight:500; cursor:pointer; transition:all .2s;
+}
+.weather-pill:hover { border-color:var(--moss); }
+.notif-btn { position:relative; background:none; border:none; cursor:pointer; font-size:22px; color:var(--forest); }
+.notif-dot { position:absolute; top:0; right:0; width:10px; height:10px; background:var(--red); border-radius:50%; border:2px solid #fff; }
+.page { display:none; padding:28px; animation:fadeIn .3s ease; }
+.page.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── STATS CARDS ── */
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+.stat-card {
+  background:var(--white); border-radius:var(--radius); padding:22px 20px; box-shadow:var(--shadow);
+  border-left:4px solid transparent; transition:all .2s;
+}
+.stat-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+.stat-card.green { border-color:var(--moss); }
+.stat-card.earth { border-color:var(--earth); }
+.stat-card.red { border-color:var(--red); }
+.stat-card.blue { border-color:var(--blue); }
+.stat-label { font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); font-weight:700; margin-bottom:8px; }
+.stat-value { font-size:32px; font-family:'DM Serif Display',serif; color:var(--forest); }
+.stat-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+
+/* ── ALERTS ── */
+.alert-banner {
+  border-radius:var(--radius-sm); padding:14px 18px; margin-bottom:12px;
+  display:flex; align-items:center; gap:12px; font-size:14px; animation:slideIn .3s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+.alert-banner.critical { background:#FEF2F2; border:1px solid #FCA5A5; color:#7F1D1D; }
+.alert-banner.warning { background:#FFFBEB; border:1px solid #FCD34D; color:#78350F; }
+.alert-banner.info { background:#EFF6FF; border:1px solid #93C5FD; color:#1E3A5F; }
+.alert-banner.success { background:#F0FDF4; border:1px solid #86EFAC; color:#14532D; }
+.alert-icon { font-size:20px; flex-shrink:0; }
+.alert-dismiss { margin-left:auto; background:none; border:none; cursor:pointer; font-size:18px; color:inherit; opacity:.6; }
+
+/* ── CARDS ── */
+.card { background:var(--white); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:20px; }
+.card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+.card-title { font-size:18px; font-family:'DM Serif Display',serif; }
+.card-badge { font-size:11px; padding:4px 12px; border-radius:20px; font-weight:700; text-transform:uppercase; }
+.badge-green { background:#D1FAE5; color:#064E3B; }
+.badge-red { background:#FEE2E2; color:#7F1D1D; }
+.badge-orange { background:#FEF3C7; color:#78350F; }
+.badge-blue { background:#DBEAFE; color:#1E3A5F; }
+
+/* ── TABLE ── */
+.data-table { width:100%; border-collapse:collapse; font-size:14px; }
+.data-table th { text-align:left; padding:12px 14px; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:700; border-bottom:2px solid var(--sand); }
+.data-table td { padding:13px 14px; border-bottom:1px solid var(--sand); vertical-align:middle; }
+.data-table tr:hover td { background:var(--cream); }
+.data-table tr:last-child td { border-bottom:none; }
+
+/* ── FORM ELEMENTS ── */
+.input { width:100%; padding:11px 14px; border:2px solid var(--sand); border-radius:var(--radius-sm); font-size:14px; font-family:'DM Sans',sans-serif; background:var(--cream); outline:none; transition:border-color .2s; }
+.input:focus { border-color:var(--moss); background:#fff; }
+select.input { cursor:pointer; }
+.btn { padding:10px 20px; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; border:none; transition:all .2s; }
+.btn-green { background:var(--forest); color:#fff; }
+.btn-green:hover { background:var(--forest-mid); }
+.btn-moss { background:var(--moss); color:#fff; }
+.btn-moss:hover { background:var(--forest-mid); }
+.btn-red { background:var(--red); color:#fff; }
+.btn-outline { background:none; border:2px solid var(--sand); color:var(--dark); }
+.btn-outline:hover { border-color:var(--moss); color:var(--forest); }
+.btn-sm { padding:7px 14px; font-size:13px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.form-label { display:block; font-size:13px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
+
+/* ── ADVISORY CARDS ── */
+.advisory-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+.advisory-card {
+  background:var(--white); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); transition:all .2s; cursor:pointer;
+}
+.advisory-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+.advisory-thumb { height:8px; }
+.advisory-thumb.maize { background:linear-gradient(90deg,#F59E0B,#D97706); }
+.advisory-thumb.vegetables { background:linear-gradient(90deg,#10B981,#059669); }
+.advisory-thumb.poultry { background:linear-gradient(90deg,#F97316,#EA580C); }
+.advisory-thumb.soil { background:linear-gradient(90deg,#92400E,#78350F); }
+.advisory-thumb.pest { background:linear-gradient(90deg,#EF4444,#DC2626); }
+.advisory-body { padding:18px; }
+.advisory-tag { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:3px 10px; border-radius:20px; margin-bottom:10px; }
+.advisory-title { font-size:16px; font-family:'DM Serif Display',serif; margin-bottom:8px; line-height:1.3; }
+.advisory-meta { font-size:12px; color:var(--muted); display:flex; gap:12px; margin-top:10px; }
+
+/* ── WEATHER ── */
+.weather-widget { background:linear-gradient(135deg,var(--forest) 0%,var(--forest-mid) 100%); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:20px; }
+.weather-main { display:flex; align-items:center; gap:20px; margin-bottom:20px; }
+.weather-icon { font-size:72px; }
+.weather-temp { font-size:56px; font-family:'DM Serif Display',serif; }
+.weather-desc { font-size:16px; opacity:.8; }
+.weather-location { font-size:13px; opacity:.6; margin-top:4px; }
+.weather-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.weather-stat { background:rgba(255,255,255,.12); border-radius:10px; padding:14px; text-align:center; }
+.weather-stat-val { font-size:18px; font-weight:700; }
+.weather-stat-label { font-size:11px; opacity:.7; margin-top:4px; }
+.forecast-row { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:16px; }
+.forecast-day { background:rgba(255,255,255,.1); border-radius:10px; padding:12px 8px; text-align:center; font-size:12px; }
+.forecast-day-name { opacity:.7; margin-bottom:6px; }
+.forecast-day-icon { font-size:24px; margin:4px 0; }
+.forecast-day-temp { font-weight:700; }
+
+/* ── CHAT ── */
+.chat-container { height:420px; overflow-y:auto; border:1px solid var(--sand); border-radius:var(--radius-sm); padding:16px; background:var(--cream); margin-bottom:12px; }
+.chat-msg { display:flex; gap:10px; margin-bottom:16px; }
+.chat-msg.user { flex-direction:row-reverse; }
+.chat-avatar { width:36px; height:36px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.chat-avatar.bot { background:var(--forest); }
+.chat-avatar.user-av { background:var(--earth); }
+.chat-bubble { max-width:70%; padding:12px 16px; border-radius:14px; font-size:14px; line-height:1.5; }
+.chat-msg.user .chat-bubble { background:var(--forest); color:#fff; border-bottom-right-radius:4px; }
+.chat-msg.bot .chat-bubble { background:var(--white); border:1px solid var(--sand); border-bottom-left-radius:4px; }
+.chat-input-row { display:flex; gap:10px; }
+.typing-indicator { display:flex; align-items:center; gap:4px; padding:10px 14px; }
+.typing-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); animation:bounce .8s infinite; }
+.typing-dot:nth-child(2){animation-delay:.15s}
+.typing-dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+
+/* ── PROFILE CARD ── */
+.profile-header { background:linear-gradient(135deg,var(--forest),var(--forest-mid)); border-radius:var(--radius); padding:32px; color:#fff; margin-bottom:20px; display:flex; align-items:center; gap:24px; }
+.profile-avatar { width:80px; height:80px; border-radius:50%; background:var(--moss); display:flex; align-items:center; justify-content:center; font-size:36px; border:3px solid rgba(255,255,255,.3); }
+.profile-name { font-size:26px; font-family:'DM Serif Display',serif; }
+.profile-role-badge { display:inline-block; background:var(--earth); color:#fff; font-size:12px; padding:4px 14px; border-radius:20px; margin-top:6px; font-weight:700; }
+
+/* ── ACTIVITY LOG ── */
+.activity-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--sand); align-items:flex-start; }
+.activity-item:last-child { border-bottom:none; }
+.activity-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+.activity-dot.green { background:var(--moss); }
+.activity-dot.red { background:var(--red); }
+.activity-dot.blue { background:var(--blue); }
+.activity-dot.orange { background:var(--earth); }
+.activity-text { font-size:14px; }
+.activity-time { font-size:12px; color:var(--muted); margin-top:3px; }
+
+/* ── MODAL ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:500; display:none; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+.modal-overlay.open { display:flex; }
+.modal { background:#fff; border-radius:20px; padding:32px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:0 32px 80px rgba(0,0,0,.3); animation:fadeIn .25s ease; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+.modal-close { background:none; border:none; font-size:24px; cursor:pointer; color:var(--muted); }
+
+/* ── SEARCH BAR ── */
+.search-bar { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.search-input-wrap { flex:1; position:relative; min-width:200px; }
+.search-input-wrap .icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:16px; color:var(--muted); }
+.search-input-wrap input { width:100%; padding:11px 14px 11px 38px; border:2px solid var(--sand); border-radius:var(--radius-sm); font-size:14px; font-family:'DM Sans',sans-serif; background:#fff; outline:none; transition:border-color .2s; }
+.search-input-wrap input:focus { border-color:var(--moss); }
+
+/* ── OFFLINE INDICATOR ── */
+.offline-bar { background:var(--orange); color:#fff; text-align:center; padding:8px; font-size:13px; font-weight:600; display:none; }
+.offline-bar.show { display:block; }
+
+/* ── PROGRESS BAR ── */
+.progress-bar { height:8px; background:var(--sand); border-radius:4px; overflow:hidden; margin:8px 0; }
+.progress-fill { height:100%; border-radius:4px; transition:width .4s; }
+
+/* ── TOGGLE ── */
+.toggle-wrap { display:flex; align-items:center; gap:10px; }
+.toggle { width:44px; height:24px; background:var(--sand); border-radius:12px; position:relative; cursor:pointer; transition:background .2s; border:none; }
+.toggle.on { background:var(--moss); }
+.toggle::after { content:''; position:absolute; width:18px; height:18px; background:#fff; border-radius:50%; top:3px; left:3px; transition:left .2s; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+.toggle.on::after { left:23px; }
+
+/* ── UTILITIES ── */
+.flex { display:flex; }
+.gap-2 { gap:8px; }
+.gap-3 { gap:12px; }
+.mb-4 { margin-bottom:16px; }
+.mb-6 { margin-bottom:24px; }
+.text-muted { color:var(--muted); font-size:13px; }
+.text-sm { font-size:13px; }
+.hidden { display:none !important; }
+.section-title { font-size:24px; margin-bottom:6px; }
+.section-sub { color:var(--muted); font-size:14px; margin-bottom:24px; }
+.tag { display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.online-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--moss); margin-right:4px; }
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar { position:fixed; inset:0 auto 0 0; z-index:200; transform:translateX(-100%); }
+  .sidebar.open { transform:translateX(0); }
+  .main { width:100%; }
+  .form-row { grid-template-columns:1fr; }
+  .weather-grid { grid-template-columns:repeat(2,1fr); }
+  .forecast-row { grid-template-columns:repeat(3,1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="offline-bar" id="offline-bar">⚡ You are offline — All data is served from local storage</div>
+
+<!-- ══════════════ AUTH SCREEN ══════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🌿</div>
+      <div>
+        <h1>RuralAgriConnect</h1>
+        <span>Offline Farm Advisory System</span>
+      </div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+    </div>
+    <div id="login-form">
+      <div class="auth-error" id="login-error"></div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="login-email" placeholder="farmer@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="pwd-wrapper">
+          <input type="password" id="login-pwd" placeholder="Enter your password" autocomplete="current-password">
+          <button class="pwd-toggle" onclick="togglePwd('login-pwd')">👁</button>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Sign In Securely 🔒</button>
+      <p class="lockout-msg" id="lockout-msg">🔒 Account locked. Try again in <span id="lockout-timer">30</span>s</p>
+      <p style="text-align:center;font-size:13px;color:var(--muted);margin-top:16px;">
+         <b>admin@farm.co.za</b> / <b>Admin@123</b>
+      </p>
+    </div>
+    <div id="register-form" class="hidden">
+      <div class="auth-error" id="reg-error"></div>
+      <div class="form-group"><label>Full Name</label><input type="text" id="reg-name" placeholder="Sipho Dlamini"></div>
+      <div class="form-group"><label>Email Address</label><input type="email" id="reg-email" placeholder="sipho@farm.co.za"></div>
+      <div class="form-group"><label>Phone Number</label><input type="tel" id="reg-phone" placeholder="+27 83 000 0000"></div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="reg-role">
+          <option value="farmer">🌾 Farmer</option>
+          <option value="admin">⚙️ Administrator</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Region / Area</label>
+        <select id="reg-region">
+          <option>KwaZulu-Natal — eThekwini</option>
+          <option>KwaZulu-Natal — uMgungundlovu</option>
+          <option>KwaZulu-Natal — iLembe</option>
+          <option>KwaZulu-Natal — Zululand</option>
+          <option>KwaZulu-Natal — uThukela</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="pwd-wrapper">
+          <input type="password" id="reg-pwd" placeholder="Min 8 chars, upper, number">
+          <button class="pwd-toggle" onclick="togglePwd('reg-pwd')">👁</button>
+        </div>
+      </div>
+      <div class="form-group"><label>Confirm Password</label><input type="password" id="reg-pwd2" placeholder="Repeat password"></div>
+      <button class="btn-primary" onclick="doRegister()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app" class="hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🌿</div>
+      <h2>RuralAgriConnect</h2>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sb-username">—</div>
+      <div class="sidebar-user-role" id="sb-role">—</div>
+      <span class="sidebar-badge" id="sb-badge">Farmer</span>
+    </div>
+    <nav>
+      <div class="nav-section">Main</div>
+      <button class="nav-item active" onclick="navigate('dashboard')"><span class="icon">🏠</span> Dashboard</button>
+      <button class="nav-item" onclick="navigate('advisories')"><span class="icon">📋</span> Advisories <span class="nav-badge" id="nav-adv-badge">3</span></button>
+      <button class="nav-item" onclick="navigate('weather')"><span class="icon">⛅</span> Weather Alerts</button>
+      <button class="nav-item" onclick="navigate('chatbot')"><span class="icon">🤖</span> AI Assistant</button>
+      <div class="nav-section" id="nav-section-officer">Admin Tools</div>
+      <button class="nav-item" onclick="navigate('publish')" id="nav-publish"><span class="icon">✏️</span> Publish Advisory</button>
+      <button class="nav-item" onclick="navigate('farmers')" id="nav-farmers"><span class="icon">👥</span> Manage Farmers</button>
+      <div class="nav-section">Personal</div>
+      <button class="nav-item" onclick="navigate('notifications')"><span class="icon">🔔</span> Notifications <span class="nav-badge" id="nav-notif-badge">2</span></button>
+      <button class="nav-item" onclick="navigate('profile')"><span class="icon">👤</span> My Profile</button>
+      <button class="nav-item" onclick="navigate('settings')"><span class="icon">⚙️</span> Settings</button>
+      <div class="nav-section" id="nav-section-admin">Administration</div>
+      <button class="nav-item" onclick="navigate('admin')" id="nav-admin"><span class="icon">🛡️</span> Admin Panel</button>
+      <button class="nav-item" onclick="navigate('logs')" id="nav-logs"><span class="icon">📜</span> Activity Logs</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="text-sm" style="color:rgba(255,255,255,.4);margin-bottom:8px;font-size:12px;">
+        <span class="online-dot" id="sync-dot"></span><span id="sync-status">Synced</span>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="flex gap-3" style="align-items:center;">
+        <button onclick="toggleSidebar()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--forest)">☰</button>
+        <h2 id="page-title">Dashboard</h2>
+      </div>
+      <div class="topbar-right">
+        <div class="weather-pill" onclick="navigate('weather')" id="weather-topbar">
+          <span id="wb-icon">⛅</span>
+          <span id="wb-temp">—°C</span>
+          <span id="wb-desc" style="color:var(--muted)">Durban</span>
+        </div>
+        <button class="notif-btn" onclick="navigate('notifications')">🔔<span class="notif-dot"></span></button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div id="alert-container"></div>
+      <div class="stats-grid">
+        <div class="stat-card green"><div class="stat-label">Total Advisories</div><div class="stat-value" id="stat-adv">0</div><div class="stat-sub">Published this season</div></div>
+        <div class="stat-card earth"><div class="stat-label">Farmers Reached</div><div class="stat-value" id="stat-farmers">0</div><div class="stat-sub">Active in your region</div></div>
+        <div class="stat-card red"><div class="stat-label">Active Alerts</div><div class="stat-value" id="stat-alerts">0</div><div class="stat-sub">Weather & pest warnings</div></div>
+        <div class="stat-card blue"><div class="stat-label">Offline Ready</div><div class="stat-value">100%</div><div class="stat-sub">All data cached locally</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">📋 Recent Advisories</div><button class="btn btn-outline btn-sm" onclick="navigate('advisories')">View All →</button></div>
+            <table class="data-table"><thead><tr><th>Title</th><th>Crop</th><th>Region</th><th>Date</th><th>Status</th></tr></thead><tbody id="dash-adv-tbody"></tbody></table>
+          </div>
+          <div class="card"><div class="card-header"><div class="card-title">🌡️ Active Weather Alerts</div></div><div id="dash-weather-alerts"></div></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">📊 Season Progress</div></div>
+            <div style="margin-bottom:12px;"><div class="text-sm" style="display:flex;justify-content:space-between;"><span>Maize</span><span style="color:var(--moss);font-weight:700;">74%</span></div><div class="progress-bar"><div class="progress-fill" style="width:74%;background:var(--moss)"></div></div></div>
+            <div style="margin-bottom:12px;"><div class="text-sm" style="display:flex;justify-content:space-between;"><span>Vegetables</span><span style="color:var(--earth);font-weight:700;">52%</span></div><div class="progress-bar"><div class="progress-fill" style="width:52%;background:var(--earth)"></div></div></div>
+            <div><div class="text-sm" style="display:flex;justify-content:space-between;"><span>Legumes</span><span style="color:var(--blue);font-weight:700;">88%</span></div><div class="progress-bar"><div class="progress-fill" style="width:88%;background:var(--blue)"></div></div></div>
+          </div>
+          <div class="card"><div class="card-header"><div class="card-title">🕐 Recent Activity</div></div><div id="dash-activity"></div></div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚡ Quick Actions</div></div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn btn-green" onclick="navigate('advisories')" style="width:100%">📖 Browse Advisories</button>
+              <button class="btn btn-moss" onclick="navigate('chatbot')" style="width:100%">🤖 Ask AI Assistant</button>
+              <button class="btn btn-outline" onclick="navigate('weather')" style="width:100%">🌦 Check Weather</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADVISORIES -->
+    <div class="page" id="page-advisories">
+      <h2 class="section-title">📋 Crop Advisories</h2>
+      <p class="section-sub">Expert guidance, tips, and best practices — available offline</p>
+      <div class="search-bar">
+        <div class="search-input-wrap"><span class="icon">🔍</span><input id="adv-search" placeholder="Search by title, crop, region…" oninput="filterAdvisories()"></div>
+        <select class="input" style="width:160px;" id="adv-crop-filter" onchange="filterAdvisories()"><option value="">All Crops</option><option>Maize</option><option>Vegetables</option><option>Poultry</option><option>Soil</option><option>Pest Control</option></select>
+        <select class="input" style="width:160px;" id="adv-region-filter" onchange="filterAdvisories()"><option value="">All Regions</option><option>eThekwini</option><option>uMgungundlovu</option><option>iLembe</option><option>Zululand</option></select>
+      </div>
+      <div class="advisory-grid" id="advisories-grid"></div>
+    </div>
+
+    <!-- WEATHER -->
+    <div class="page" id="page-weather">
+      <h2 class="section-title">⛅ Weather & Pest Alerts</h2>
+      <p class="section-sub">Real-time conditions and outbreak warnings for your region</p>
+      <div class="weather-widget">
+        <div class="weather-main"><div class="weather-icon" id="w-icon">⛅</div><div><div class="weather-temp" id="w-temp">—°C</div><div class="weather-desc" id="w-desc">Loading weather…</div><div class="weather-location">Durban, KwaZulu-Natal</div></div></div>
+        <div class="weather-grid">
+          <div class="weather-stat"><div class="weather-stat-val" id="w-humidity">—%</div><div class="weather-stat-label">Humidity</div></div>
+          <div class="weather-stat"><div class="weather-stat-val" id="w-wind">— km/h</div><div class="weather-stat-label">Wind</div></div>
+          <div class="weather-stat"><div class="weather-stat-val" id="w-rain">—mm</div><div class="weather-stat-label">Rainfall</div></div>
+          <div class="weather-stat"><div class="weather-stat-val" id="w-uv">—</div><div class="weather-stat-label">UV Index</div></div>
+        </div>
+        <div class="forecast-row" id="forecast-row"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">🐛 Pest Outbreak Alerts</div><button class="btn btn-moss btn-sm" id="btn-add-alert" onclick="openAlertModal()" style="display:none">+ Add Alert</button></div>
+        <div id="pest-alerts-list"></div>
+      </div>
+      <div class="card"><div class="card-header"><div class="card-title">🌧️ Farming Advisories for Current Weather</div></div><div id="weather-farm-tips"></div></div>
+    </div>
+
+    <!-- CHATBOT -->
+    <div class="page" id="page-chatbot">
+      <h2 class="section-title">🤖 AI Farming Assistant</h2>
+      <p class="section-sub">Ask questions about crops, pests, soil, weather — powered by Claude AI</p>
+      <div class="card">
+        <div class="chat-container" id="chat-container"></div>
+        <div class="chat-input-row">
+          <input class="input" id="chat-input" placeholder="Ask about maize growth, pest control, soil pH…" onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="btn btn-green" onclick="sendChat()">Send 📤</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="quickChat('What crops should I plant this season in KZN?')">🌱 Planting season</button>
+          <button class="btn btn-outline btn-sm" onclick="quickChat('How do I identify and treat fall armyworm?')">🐛 Pest control</button>
+          <button class="btn btn-outline btn-sm" onclick="quickChat('What fertilizer is best for maize?')">💧 Fertilizer</button>
+          <button class="btn btn-outline btn-sm" onclick="quickChat('How to improve soil pH for vegetables?')">🌍 Soil health</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PUBLISH -->
+    <div class="page" id="page-publish">
+      <h2 class="section-title">✏️ Publish Advisory</h2>
+      <p class="section-sub">Create and broadcast crop advisories to farmers in your region</p>
+      <div class="card">
+        <div class="form-row mb-4">
+          <div><label class="form-label">Advisory Title</label><input class="input" id="pub-title" placeholder="e.g. Maize Stalk Borer Alert — Season 2026"></div>
+          <div><label class="form-label">Crop Type</label><select class="input" id="pub-crop"><option>Maize</option><option>Vegetables</option><option>Poultry</option><option>Soil</option><option>Pest Control</option><option>Irrigation</option><option>General</option></select></div>
+        </div>
+        <div class="form-row mb-4">
+          <div><label class="form-label">Region</label><select class="input" id="pub-region"><option>All Regions</option><option>eThekwini</option><option>uMgungundlovu</option><option>iLembe</option><option>Zululand</option><option>uThukela</option></select></div>
+          <div><label class="form-label">Severity</label><select class="input" id="pub-severity"><option value="info">ℹ️ Information</option><option value="warning">⚠️ Warning</option><option value="critical">🔴 Critical</option></select></div>
+        </div>
+        <div class="mb-4"><label class="form-label">Advisory Content</label><textarea class="input" id="pub-body" rows="6" placeholder="Provide detailed advisory content, recommendations, and actions farmers should take…" style="resize:vertical;"></textarea></div>
+        <div class="form-row mb-4">
+          <div><label class="form-label">Valid From</label><input class="input" type="date" id="pub-from"></div>
+          <div><label class="form-label">Valid Until</label><input class="input" type="date" id="pub-until"></div>
+        </div>
+        <div class="mb-4 flex gap-3" style="align-items:center;flex-wrap:wrap;">
+          <label style="font-size:14px;font-weight:600;color:var(--muted);">Notify via:</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;"><input type="checkbox" id="notify-push" checked> Push Notification</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;"><input type="checkbox" id="notify-sms"> SMS Gateway</label>
+        </div>
+        <button class="btn btn-green" onclick="publishAdvisory()" style="padding:13px 28px;font-size:15px;">📢 Publish Advisory</button>
+      </div>
+    </div>
+
+    <!-- FARMERS -->
+    <div class="page" id="page-farmers">
+      <h2 class="section-title">👥 Manage Farmers</h2>
+      <p class="section-sub">View and manage registered farmer profiles in your region</p>
+      <div class="search-bar">
+        <div class="search-input-wrap"><span class="icon">🔍</span><input id="farmer-search" placeholder="Search by name, region, crops…" oninput="filterFarmers()"></div>
+        <button class="btn btn-green" onclick="openFarmerModal()">+ Add Farmer</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="data-table"><thead><tr><th>Name</th><th>Region</th><th>Crops</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead><tbody id="farmers-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="page" id="page-notifications">
+      <h2 class="section-title">🔔 Notifications</h2>
+      <p class="section-sub">Alerts, advisories, and system messages</p>
+      <div class="flex gap-3 mb-4">
+        <button class="btn btn-green btn-sm" onclick="markAllRead()">✓ Mark All Read</button>
+        <button class="btn btn-outline btn-sm" onclick="clearNotifs()">🗑 Clear All</button>
+      </div>
+      <div id="notif-list"></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="page" id="page-profile">
+      <div class="profile-header">
+        <div class="profile-avatar" id="prof-avatar">👤</div>
+        <div><div class="profile-name" id="prof-name">—</div><div id="prof-email" style="opacity:.7;font-size:14px;margin-top:4px;">—</div><span class="profile-role-badge" id="prof-role-badge">Farmer</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">✏️ Edit Profile</div></div>
+          <div class="mb-4"><label class="form-label">Full Name</label><input class="input" id="edit-name"></div>
+          <div class="mb-4"><label class="form-label">Phone</label><input class="input" id="edit-phone"></div>
+          <div class="mb-4"><label class="form-label">Region</label><select class="input" id="edit-region"><option>KwaZulu-Natal — eThekwini</option><option>KwaZulu-Natal — uMgungundlovu</option><option>KwaZulu-Natal — iLembe</option><option>KwaZulu-Natal — Zululand</option></select></div>
+          <div class="mb-4"><label class="form-label">Primary Crops</label><input class="input" id="edit-crops" placeholder="e.g. Maize, Beans, Tomatoes"></div>
+          <button class="btn btn-green" onclick="saveProfile()">💾 Save Changes</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔒 Change Password</div></div>
+          <div class="mb-4"><label class="form-label">Current Password</label><input class="input" type="password" id="old-pwd"></div>
+          <div class="mb-4"><label class="form-label">New Password</label><input class="input" type="password" id="new-pwd"></div>
+          <div class="mb-4"><label class="form-label">Confirm New</label><input class="input" type="password" id="new-pwd2"></div>
+          <button class="btn btn-green" onclick="changePassword()">🔑 Update Password</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <h2 class="section-title">⚙️ Settings</h2>
+      <p class="section-sub">App preferences, notifications, and offline storage</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔔 Notification Preferences</div></div>
+          <div style="display:flex;flex-direction:column;gap:18px;">
+            <div class="toggle-wrap"><button class="toggle on" id="tog-push" onclick="toggleSetting('tog-push')"></button><div><div style="font-size:14px;font-weight:600;">Push Notifications</div><div class="text-muted">Receive alert banners in-app</div></div></div>
+            <div class="toggle-wrap"><button class="toggle on" id="tog-pest" onclick="toggleSetting('tog-pest')"></button><div><div style="font-size:14px;font-weight:600;">Pest Outbreak Alerts</div><div class="text-muted">Critical warnings sent instantly</div></div></div>
+            <div class="toggle-wrap"><button class="toggle" id="tog-sms" onclick="toggleSetting('tog-sms')"></button><div><div style="font-size:14px;font-weight:600;">SMS Notifications</div><div class="text-muted">Requires Africa's Talking setup</div></div></div>
+            <div class="toggle-wrap"><button class="toggle on" id="tog-weather" onclick="toggleSetting('tog-weather')"></button><div><div style="font-size:14px;font-weight:600;">Weather Alerts</div><div class="text-muted">Storms, drought, frost warnings</div></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">💾 Offline Storage</div></div>
+          <div style="margin-bottom:16px;">
+            <div class="text-sm" style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Storage Used</span><span id="storage-used">—</span></div>
+            <div class="progress-bar"><div class="progress-fill" id="storage-bar" style="width:0%;background:var(--moss)"></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <button class="btn btn-outline" onclick="syncNow()">🔄 Sync Data Now</button>
+            <button class="btn btn-outline" onclick="exportData()">📦 Export My Data</button>
+            <button class="btn btn-red btn-sm" onclick="clearAllData()">🗑 Clear All Offline Data</button>
+          </div>
+          <hr style="margin:20px 0;border:none;border-top:1px solid var(--sand);">
+          <div class="card-title" style="font-size:16px;margin-bottom:14px;">🌍 Language / Ulimi</div>
+          <select class="input" id="lang-select" onchange="setLanguage(this.value)"><option value="en">English</option><option value="zu">isiZulu</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="page" id="page-admin">
+      <h2 class="section-title">🛡️ Administration Panel</h2>
+      <p class="section-sub">User management, system overview, and security</p>
+      <div class="stats-grid">
+        <div class="stat-card green"><div class="stat-label">Total Users</div><div class="stat-value" id="admin-total">0</div></div>
+        <div class="stat-card earth"><div class="stat-label">Farmers</div><div class="stat-value" id="admin-farmers">0</div></div>
+        <div class="stat-card blue"><div class="stat-label">Administrators</div><div class="stat-value" id="admin-officers">0</div></div>
+        <div class="stat-card red"><div class="stat-label">Failed Logins (24h)</div><div class="stat-value" id="admin-failed">0</div></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="card-header" style="padding:20px 24px;"><div class="card-title">👥 All Users</div></div>
+        <table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Region</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-users-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="page" id="page-logs">
+      <h2 class="section-title">📜 Activity Logs</h2>
+      <p class="section-sub">Full audit trail of system events</p>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="data-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th><th>Type</th></tr></thead><tbody id="logs-tbody"></tbody></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="adv-modal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-adv-title" style="font-size:20px;"></h3><button class="modal-close" onclick="closeModal('adv-modal')">✕</button></div>
+    <div id="modal-adv-body"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="alert-modal">
+  <div class="modal">
+    <div class="modal-header"><h3>⚠️ Add Pest / Weather Alert</h3><button class="modal-close" onclick="closeModal('alert-modal')">✕</button></div>
+    <div class="mb-4"><label class="form-label">Alert Title</label><input class="input" id="al-title" placeholder="e.g. Fall Armyworm Outbreak"></div>
+    <div class="mb-4"><label class="form-label">Type</label><select class="input" id="al-type"><option value="critical">🔴 Critical</option><option value="warning">⚠️ Warning</option><option value="info">ℹ️ Info</option></select></div>
+    <div class="mb-4"><label class="form-label">Description</label><textarea class="input" id="al-desc" rows="3"></textarea></div>
+    <div class="mb-4"><label class="form-label">Region Affected</label><select class="input" id="al-region"><option>All Regions</option><option>eThekwini</option><option>uMgungundlovu</option><option>iLembe</option><option>Zululand</option></select></div>
+    <button class="btn btn-green" onclick="saveAlert()" style="width:100%">🚨 Publish Alert</button>
+  </div>
+</div>
+<div class="modal-overlay" id="farmer-modal">
+  <div class="modal">
+    <div class="modal-header"><h3>👤 Add Farmer Profile</h3><button class="modal-close" onclick="closeModal('farmer-modal')">✕</button></div>
+    <div class="form-row mb-4">
+      <div><label class="form-label">Full Name</label><input class="input" id="fm-name" placeholder="Thabo Nkosi"></div>
+      <div><label class="form-label">Phone</label><input class="input" id="fm-phone" placeholder="+27 72 000 0000"></div>
+    </div>
+    <div class="form-row mb-4">
+      <div><label class="form-label">Region</label><select class="input" id="fm-region"><option>eThekwini</option><option>uMgungundlovu</option><option>iLembe</option><option>Zululand</option></select></div>
+      <div><label class="form-label">Primary Crops</label><input class="input" id="fm-crops" placeholder="Maize, Beans"></div>
+    </div>
+    <button class="btn btn-green" onclick="saveFarmer()" style="width:100%">✅ Save Farmer</button>
+  </div>
+</div>
+
+<script>
+const LS={get:k=>{try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),rm:k=>localStorage.removeItem(k)};
+
+function seedData(){
+  if(!LS.get('rac_seeded')){
+    const users=[
+      {id:1,name:'Admin User',email:'admin@farm.co.za',pwd:hashPwd('Admin@123'),role:'admin',region:'KwaZulu-Natal — eThekwini',phone:'+27831234567',crops:'Maize, Vegetables',active:true},
+      {id:2,name:'Sipho Dlamini',email:'sipho@farm.co.za',pwd:hashPwd('Farmer@1'),role:'farmer',region:'KwaZulu-Natal — iLembe',phone:'+27721234567',crops:'Maize, Beans',active:true},
+    ];
+    LS.set('rac_users',users);
+    const advisories=[
+      {id:1,title:'Maize Stalk Borer Season Alert 2026',crop:'Maize',region:'eThekwini',body:'Stalk borer (Busseola fusca) pressure is increasing this season. Apply Bt-based sprays at first sign of infestation. Inspect whorl leaves weekly. Plant resistant varieties like SC403.',author:'Admin User',date:'2026-03-15',severity:'warning',status:'published'},
+      {id:2,title:'Tomato Mosaic Virus — Early Warning',crop:'Vegetables',region:'All Regions',body:'Tomato mosaic virus has been detected in uMgungundlovu farms. Use certified disease-free seedlings, sterilize tools between plants, and remove infected plants immediately.',author:'Admin User',date:'2026-03-20',severity:'critical',status:'published'},
+      {id:3,title:'Optimal Maize Fertilizer Plan — Season 2',crop:'Maize',region:'iLembe',body:'Apply 2:3:2 (22) + 0.5% Zn at planting (200kg/ha). Top-dress with LAN at 6-leaf stage (150kg/ha). Soil pH should be 5.5–6.5.',author:'Admin User',date:'2026-03-22',severity:'info',status:'published'},
+      {id:4,title:'Fall Armyworm Control — Spray Window',crop:'Pest Control',region:'Zululand',body:'The optimal spray window is early morning or late afternoon. Use Emamectin benzoate at 200ml/200L water. Monitor traps — treat when >8 moths/trap/week.',author:'Admin User',date:'2026-03-10',severity:'critical',status:'published'},
+      {id:5,title:'Soil pH Correction for Vegetable Gardens',crop:'Soil',region:'All Regions',body:'If soil pH is below 5.5, apply agricultural lime at 2-3 tons/ha. Re-test after 6 weeks. Dolomitic lime provides both Ca and Mg.',author:'Admin User',date:'2026-02-28',severity:'info',status:'published'},
+      {id:6,title:'Free-Range Poultry — Disease Prevention',crop:'Poultry',region:'uMgungundlovu',body:'Vaccinate against Newcastle Disease every 6 weeks using eye-drop method. Maintain clean litter. Quarantine new birds for 14 days.',author:'Admin User',date:'2026-03-05',severity:'warning',status:'published'},
+    ];
+    LS.set('rac_advisories',advisories);
+    const alerts=[
+      {id:1,title:'🌧️ Heavy Rainfall Warning — eThekwini',type:'warning',desc:'Expect 60–80mm rainfall over 3 days. Delay planting. Check drainage channels.',region:'eThekwini',date:'2026-03-26'},
+      {id:2,title:'🐛 Fall Armyworm — Zululand Region',type:'critical',desc:'High population levels detected. Immediate scouting required. Spray within 48 hours.',region:'Zululand',date:'2026-03-25'},
+      {id:3,title:'🌡️ Heatwave Forecast — uThukela',type:'warning',desc:'Temperatures expected to exceed 36°C for 4 consecutive days. Increase irrigation.',region:'uThukela',date:'2026-03-24'},
+    ];
+    LS.set('rac_alerts',alerts);
+    const farmers=[
+      {id:1,name:'Thabo Nkosi',region:'eThekwini',crops:'Maize, Beans',phone:'+27821111111',status:'active'},
+      {id:2,name:'Nomvula Zulu',region:'iLembe',crops:'Tomatoes, Spinach',phone:'+27721111111',status:'active'},
+      {id:3,name:'Bongani Khumalo',region:'Zululand',crops:'Maize',phone:'+27831111111',status:'active'},
+      {id:4,name:'Zanele Dube',region:'uMgungundlovu',crops:'Poultry, Maize',phone:'+27711111111',status:'active'},
+    ];
+    LS.set('rac_farmers',farmers);
+    const logs=[
+      {time:'2026-03-26 08:12',user:'Admin User',action:'Login',detail:'Successful login from web',type:'info'},
+      {time:'2026-03-26 08:30',user:'Admin User',action:'Published Advisory',detail:'Maize Stalk Borer alert created',type:'success'},
+      {time:'2026-03-25 14:02',user:'Sipho Dlamini',action:'Login',detail:'Successful login',type:'info'},
+      {time:'2026-03-25 09:11',user:'Unknown',action:'Failed Login',detail:'3 failed attempts for admin@farm.co.za',type:'red'},
+    ];
+    LS.set('rac_logs',logs);
+    LS.set('rac_notifs',[
+      {id:1,title:'⚠️ New Advisory Published',body:'Fall Armyworm control — check the advisories section.',time:'2 hours ago',read:false},
+      {id:2,title:'🌧️ Weather Alert',body:'Heavy rainfall expected in your region this week.',time:'5 hours ago',read:false},
+      {id:3,title:'✅ Welcome to RuralAgriConnect',body:'Your profile is ready. Stay informed, stay connected.',time:'2 days ago',read:true},
+    ]);
+    LS.set('rac_seeded',true);
+  }
+}
+
+function hashPwd(p){let h=0;for(let c of p)h=((h<<5)-h)+c.charCodeAt(0);return h.toString(16);}
+function verifyPwd(p,h){return hashPwd(p)===h;}
+
+let loginAttempts=0,lockoutUntil=0,currentUser=null;
+
+function switchAuthTab(tab){
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',(tab==='login'&&i===0)||(tab==='register'&&i===1)));
+  document.getElementById('login-form').classList.toggle('hidden',tab!=='login');
+  document.getElementById('register-form').classList.toggle('hidden',tab!=='register');
+}
+function togglePwd(id){const el=document.getElementById(id);el.type=el.type==='password'?'text':'password';}
+function showAuthError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block';}
+
+function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pwd=document.getElementById('login-pwd').value;
+  const errEl=document.getElementById('login-error');errEl.style.display='none';
+  if(Date.now()<lockoutUntil){showAuthError('login-error','Account locked. Please wait.');return;}
+  if(!email||!pwd){showAuthError('login-error','Please fill in all fields.');return;}
+  const users=LS.get('rac_users')||[];
+  const user=users.find(u=>u.email===email);
+  if(!user||!verifyPwd(pwd,user.pwd)){
+    loginAttempts++;
+    if(loginAttempts>=5){lockoutUntil=Date.now()+30000;document.getElementById('lockout-msg').style.display='block';startLockoutTimer();showAuthError('login-error','Too many failed attempts. Account locked for 30s.');logAction('Unknown','Failed Login',`Locked after 5 attempts for ${email}`,'red');}
+    else{showAuthError('login-error',`Invalid credentials. ${5-loginAttempts} attempt(s) remaining.`);logAction('Unknown','Failed Login',`Failed attempt for ${email}`,'red');}
+    return;
+  }
+  loginAttempts=0;currentUser=user;LS.set('rac_session',{userId:user.id,token:'jwt_'+Date.now()});
+  logAction(user.name,'Login','Successful login','info');launchApp();
+}
+
+function startLockoutTimer(){
+  const span=document.getElementById('lockout-timer');
+  const iv=setInterval(()=>{const rem=Math.ceil((lockoutUntil-Date.now())/1000);if(rem<=0){clearInterval(iv);document.getElementById('lockout-msg').style.display='none';loginAttempts=0;}else span.textContent=rem;},500);
+}
+
+function doRegister(){
+  const name=document.getElementById('reg-name').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const phone=document.getElementById('reg-phone').value.trim();
+  const role=document.getElementById('reg-role').value;
+  const region=document.getElementById('reg-region').value;
+  const pwd=document.getElementById('reg-pwd').value;
+  const pwd2=document.getElementById('reg-pwd2').value;
+  const errEl=document.getElementById('reg-error');errEl.style.display='none';
+  if(!name||!email||!pwd){showAuthError('reg-error','Please fill in all required fields.');return;}
+  if(pwd!==pwd2){showAuthError('reg-error','Passwords do not match.');return;}
+  if(!/(?=.*[A-Z])(?=.*\d).{8,}/.test(pwd)){showAuthError('reg-error','Password must be 8+ chars with uppercase and number.');return;}
+  const users=LS.get('rac_users')||[];
+  if(users.find(u=>u.email===email)){showAuthError('reg-error','Email already registered.');return;}
+  const newUser={id:Date.now(),name,email,pwd:hashPwd(pwd),role,region,phone,crops:'',active:true};
+  users.push(newUser);LS.set('rac_users',users);currentUser=newUser;LS.set('rac_session',{userId:newUser.id,token:'jwt_'+Date.now()});
+  logAction(name,'Register','New account created','success');launchApp();
+}
+
+function doLogout(){LS.rm('rac_session');currentUser=null;document.getElementById('auth-screen').classList.remove('hidden');document.getElementById('app').classList.add('hidden');document.getElementById('login-email').value='';document.getElementById('login-pwd').value='';}
+
+function autoLogin(){const s=LS.get('rac_session');if(!s)return false;const u=(LS.get('rac_users')||[]).find(u=>u.id===s.userId);if(!u)return false;currentUser=u;return true;}
+
+function launchApp(){document.getElementById('auth-screen').classList.add('hidden');document.getElementById('app').classList.remove('hidden');setupUI();navigate('dashboard');}
+
+function setupUI(){
+  const u=currentUser;
+  document.getElementById('sb-username').textContent=u.name;
+  document.getElementById('sb-role').textContent=roleLabel(u.role);
+  document.getElementById('sb-badge').textContent=roleLabel(u.role);
+  const isAdmin=u.role==='admin';
+  ['nav-publish','nav-farmers','nav-section-officer'].forEach(id=>document.getElementById(id).style.display=isAdmin?'':'none');
+  ['nav-admin','nav-logs','nav-section-admin'].forEach(id=>document.getElementById(id).style.display=isAdmin?'':'none');
+  document.getElementById('btn-add-alert').style.display=isAdmin?'':'none';
+  document.getElementById('edit-name').value=u.name;
+  document.getElementById('edit-phone').value=u.phone||'';
+  document.getElementById('edit-crops').value=u.crops||'';
+  loadWeather();renderNotifBadge();calcStorage();
+}
+
+function roleLabel(r){return r==='admin'?'Administrator':'Farmer';}
+function roleEmoji(r){return r==='admin'?'⚙️':'🌾';}
+
+const pageTitles={dashboard:'Dashboard',advisories:'Crop Advisories',weather:'Weather & Alerts',chatbot:'AI Assistant',publish:'Publish Advisory',farmers:'Manage Farmers',notifications:'Notifications',profile:'My Profile',settings:'Settings',admin:'Admin Panel',logs:'Activity Logs'};
+
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('page-title').textContent=pageTitles[page]||page;
+  if(page==='dashboard')renderDashboard();
+  if(page==='advisories')renderAdvisories();
+  if(page==='weather')renderWeather();
+  if(page==='farmers')renderFarmers();
+  if(page==='notifications')renderNotifications();
+  if(page==='profile')renderProfile();
+  if(page==='admin')renderAdmin();
+  if(page==='logs')renderLogs();
+  if(page==='chatbot')initChat();
+}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+function renderDashboard(){
+  const adv=LS.get('rac_advisories')||[];
+  const farmers=LS.get('rac_farmers')||[];
+  const alerts=LS.get('rac_alerts')||[];
+  document.getElementById('stat-adv').textContent=adv.length;
+  document.getElementById('stat-farmers').textContent=farmers.length;
+  document.getElementById('stat-alerts').textContent=alerts.length;
+  const ac=document.getElementById('alert-container');ac.innerHTML='';
+  alerts.filter(a=>a.type==='critical').forEach(a=>{ac.innerHTML+=`<div class="alert-banner critical"><span class="alert-icon">🔴</span><div><b>${a.title}</b><br><span>${a.desc}</span></div><button class="alert-dismiss" onclick="this.parentElement.remove()">✕</button></div>`;});
+  const tbody=document.getElementById('dash-adv-tbody');tbody.innerHTML='';
+  adv.slice(-5).reverse().forEach(a=>{tbody.innerHTML+=`<tr><td><b>${a.title}</b></td><td><span class="tag badge-green">${a.crop}</span></td><td>${a.region}</td><td>${a.date}</td><td><span class="card-badge ${a.severity==='critical'?'badge-red':a.severity==='warning'?'badge-orange':'badge-blue'}">${a.severity}</span></td></tr>`;});
+  const dwa=document.getElementById('dash-weather-alerts');dwa.innerHTML='';
+  alerts.forEach(a=>{dwa.innerHTML+=`<div class="alert-banner ${a.type}"><span class="alert-icon">${a.type==='critical'?'🔴':'⚠️'}</span><div><b>${a.title}</b><br>${a.desc}</div></div>`;});
+  const da=document.getElementById('dash-activity');da.innerHTML='';
+  (LS.get('rac_logs')||[]).slice(-5).reverse().forEach(l=>{da.innerHTML+=`<div class="activity-item"><div class="activity-dot ${l.type}"></div><div><div class="activity-text">${l.action} — ${l.detail}</div><div class="activity-time">${l.time}</div></div></div>`;});
+}
+
+const cropColors={Maize:'maize',Vegetables:'vegetables',Poultry:'poultry',Soil:'soil','Pest Control':'pest'};
+const cropBadgeColors={Maize:'badge-orange',Vegetables:'badge-green',Poultry:'badge-orange',Soil:'badge-blue','Pest Control':'badge-red'};
+const badgeMap={info:'badge-blue',warning:'badge-orange',critical:'badge-red'};
+
+function renderAdvisories(filtered){
+  const adv=filtered||(LS.get('rac_advisories')||[]);
+  const grid=document.getElementById('advisories-grid');grid.innerHTML='';
+  adv.forEach(a=>{grid.innerHTML+=`<div class="advisory-card" onclick="openAdvisory(${a.id})"><div class="advisory-thumb ${cropColors[a.crop]||'maize'}"></div><div class="advisory-body"><span class="advisory-tag ${cropBadgeColors[a.crop]||'badge-blue'}">${a.crop}</span><div class="advisory-title">${a.title}</div><p style="font-size:13px;color:var(--muted);line-height:1.5;">${a.body.slice(0,100)}…</p><div class="advisory-meta"><span>📍 ${a.region}</span><span>📅 ${a.date}</span><span class="card-badge ${badgeMap[a.severity]}">${a.severity}</span></div></div></div>`;});
+  document.getElementById('nav-adv-badge').textContent=adv.length;
+}
+
+function filterAdvisories(){
+  const q=document.getElementById('adv-search').value.toLowerCase();
+  const crop=document.getElementById('adv-crop-filter').value;
+  const region=document.getElementById('adv-region-filter').value;
+  renderAdvisories((LS.get('rac_advisories')||[]).filter(a=>(!q||(a.title+a.body+a.crop+a.region).toLowerCase().includes(q))&&(!crop||a.crop===crop)&&(!region||a.region.includes(region))));
+}
+
+function openAdvisory(id){
+  const adv=(LS.get('rac_advisories')||[]).find(a=>a.id===id);if(!adv)return;
+  document.getElementById('modal-adv-title').textContent=adv.title;
+  document.getElementById('modal-adv-body').innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"><span class="card-badge badge-green">${adv.crop}</span><span class="card-badge ${badgeMap[adv.severity]}">${adv.severity}</span><span class="text-muted">📍 ${adv.region}</span><span class="text-muted">📅 ${adv.date}</span></div><p style="line-height:1.8;font-size:15px;">${adv.body}</p><div style="margin-top:20px;padding:14px;background:var(--cream);border-radius:10px;font-size:13px;color:var(--muted);"><b>Published by:</b> ${adv.author} &nbsp;|&nbsp; <b>Status:</b> ${adv.status}</div>`;
+  openModal('adv-modal');
+}
+
+function loadWeather(){
+  const conditions=[{icon:'⛅',temp:26,desc:'Partly Cloudy',hum:72,wind:15,rain:12,uv:6},{icon:'🌧️',temp:19,desc:'Light Rain',hum:88,wind:22,rain:38,uv:2},{icon:'☀️',temp:31,desc:'Sunny',hum:55,wind:8,rain:0,uv:9}];
+  const w=conditions[Math.floor(Math.random()*conditions.length)];LS.set('rac_weather',{...w,ts:Date.now()});updateWeatherUI(w);
+}
+function updateWeatherUI(w){
+  if(!w)return;
+  document.getElementById('wb-icon').textContent=w.icon;document.getElementById('wb-temp').textContent=w.temp+'°C';document.getElementById('wb-desc').textContent=w.desc;
+  document.getElementById('w-icon').textContent=w.icon;document.getElementById('w-temp').textContent=w.temp+'°C';document.getElementById('w-desc').textContent=w.desc;
+  document.getElementById('w-humidity').textContent=w.hum+'%';document.getElementById('w-wind').textContent=w.wind+' km/h';document.getElementById('w-rain').textContent=w.rain+'mm';document.getElementById('w-uv').textContent=w.uv;
+}
+function renderWeather(){
+  updateWeatherUI(LS.get('rac_weather'));
+  const days=[{n:'Mon',i:'🌤',h:28,l:18},{n:'Tue',i:'🌧️',h:22,l:16},{n:'Wed',i:'⛅',h:25,l:19},{n:'Thu',i:'☀️',h:32,l:21},{n:'Fri',i:'🌩',h:21,l:17}];
+  const fr=document.getElementById('forecast-row');fr.innerHTML='';
+  days.forEach(d=>{fr.innerHTML+=`<div class="forecast-day"><div class="forecast-day-name">${d.n}</div><div class="forecast-day-icon">${d.i}</div><div class="forecast-day-temp">${d.h}°/${d.l}°</div></div>`;});
+  const pl=document.getElementById('pest-alerts-list');pl.innerHTML='';
+  (LS.get('rac_alerts')||[]).forEach(a=>{pl.innerHTML+=`<div class="alert-banner ${a.type}"><span class="alert-icon">${a.type==='critical'?'🔴':'⚠️'}</span><div><b>${a.title}</b><br><span>${a.desc}</span><br><span class="text-muted">📍 ${a.region} — ${a.date}</span></div></div>`;});
+  document.getElementById('weather-farm-tips').innerHTML=`<div class="alert-banner info"><span class="alert-icon">💡</span><div><b>Spray Window</b>: Avoid spraying during heavy rain. Wind speeds below 15 km/h are ideal.</div></div><div class="alert-banner success"><span class="alert-icon">🌱</span><div><b>Planting Conditions</b>: Soil moisture is adequate. Optimal planting window is the next 3–5 days.</div></div><div class="alert-banner warning"><span class="alert-icon">🍄</span><div><b>Disease Risk</b>: High humidity increases fungal risk. Apply preventive fungicide to maize this week.</div></div>`;
+}
+function openAlertModal(){openModal('alert-modal');}
+function saveAlert(){
+  const alerts=LS.get('rac_alerts')||[];
+  alerts.push({id:Date.now(),title:document.getElementById('al-title').value,type:document.getElementById('al-type').value,desc:document.getElementById('al-desc').value,region:document.getElementById('al-region').value,date:new Date().toISOString().split('T')[0]});
+  LS.set('rac_alerts',alerts);logAction(currentUser.name,'Published Alert',document.getElementById('al-title').value,'red');closeModal('alert-modal');renderWeather();toast('🚨 Alert published!');
+}
+
+let chatHistory=[];
+function initChat(){if(chatHistory.length===0)addBotMsg("Hello "+currentUser.name.split(' ')[0]+"! 👋 I'm your RuralAgriConnect AI assistant. I can help with crop advice, pest identification, soil health, and more. What would you like to know?");}
+function addBotMsg(text){chatHistory.push({role:'assistant',content:text});const c=document.getElementById('chat-container');c.innerHTML+=`<div class="chat-msg bot"><div class="chat-avatar bot">🤖</div><div class="chat-bubble">${text}</div></div>`;c.scrollTop=c.scrollHeight;}
+function addUserMsg(text){chatHistory.push({role:'user',content:text});const c=document.getElementById('chat-container');c.innerHTML+=`<div class="chat-msg user"><div class="chat-avatar user-av">👤</div><div class="chat-bubble">${text}</div></div>`;c.scrollTop=c.scrollHeight;}
+function showTyping(){const c=document.getElementById('chat-container');c.innerHTML+=`<div class="chat-msg bot" id="typing-indicator"><div class="chat-avatar bot">🤖</div><div class="chat-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div></div>`;c.scrollTop=c.scrollHeight;}
+function removeTyping(){const t=document.getElementById('typing-indicator');if(t)t.remove();}
+async function sendChat(){const inp=document.getElementById('chat-input');const text=inp.value.trim();if(!text)return;inp.value='';addUserMsg(text);showTyping();await callClaude(text);}
+function quickChat(text){document.getElementById('chat-input').value=text;sendChat();}
+async function callClaude(userMsg){
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:`You are an expert agricultural advisor for RuralAgriConnect, serving smallholder farmers in KwaZulu-Natal, South Africa. Specialise in maize, vegetables, legumes, and poultry. Give practical, concise advice for rural farming. Current user: ${currentUser.name}, Region: ${currentUser.region}. Respond in plain text, under 200 words.`,messages:chatHistory.filter(m=>m.role!=='assistant'||m.content.length<500).slice(-8)})});
+    const data=await res.json();removeTyping();addBotMsg(data.content?.[0]?.text||'Could not process request. Please try again.');
+  }catch(e){removeTyping();addBotMsg("I'm currently offline. Tip: For fall armyworm, spray Emamectin benzoate early morning when larvae are young. Check under leaves for egg masses. Report outbreaks to your extension officer.");}
+}
+
+function publishAdvisory(){
+  const title=document.getElementById('pub-title').value.trim();
+  const body=document.getElementById('pub-body').value.trim();
+  if(!title||!body){toast('⚠️ Please fill in title and content.','warning');return;}
+  const adv=LS.get('rac_advisories')||[];
+  adv.push({id:Date.now(),title,crop:document.getElementById('pub-crop').value,region:document.getElementById('pub-region').value,body,severity:document.getElementById('pub-severity').value,author:currentUser.name,date:new Date().toISOString().split('T')[0],status:'published'});
+  LS.set('rac_advisories',adv);logAction(currentUser.name,'Published Advisory',title,'success');addNotif('📢 Advisory Published',title+' is now live.');
+  ['pub-title','pub-body'].forEach(id=>document.getElementById(id).value='');toast('✅ Advisory published!');
+}
+
+function renderFarmers(filtered){
+  const farmers=filtered||(LS.get('rac_farmers')||[]);
+  const tbody=document.getElementById('farmers-tbody');tbody.innerHTML='';
+  farmers.forEach(f=>{tbody.innerHTML+=`<tr><td><b>${f.name}</b></td><td>📍 ${f.region}</td><td>${f.crops}</td><td>${f.phone}</td><td><span class="card-badge badge-green">${f.status}</span></td><td><button class="btn btn-outline btn-sm" onclick="deleteFarmer(${f.id})">🗑</button></td></tr>`;});
+}
+function filterFarmers(){const q=document.getElementById('farmer-search').value.toLowerCase();renderFarmers((LS.get('rac_farmers')||[]).filter(f=>(f.name+f.region+f.crops).toLowerCase().includes(q)));}
+function openFarmerModal(){openModal('farmer-modal');}
+function saveFarmer(){
+  const farmers=LS.get('rac_farmers')||[];
+  farmers.push({id:Date.now(),name:document.getElementById('fm-name').value,phone:document.getElementById('fm-phone').value,region:document.getElementById('fm-region').value,crops:document.getElementById('fm-crops').value,status:'active'});
+  LS.set('rac_farmers',farmers);['fm-name','fm-phone','fm-crops'].forEach(id=>document.getElementById(id).value='');closeModal('farmer-modal');renderFarmers();toast('✅ Farmer profile added!');
+}
+function deleteFarmer(id){if(!confirm('Remove this farmer?'))return;LS.set('rac_farmers',(LS.get('rac_farmers')||[]).filter(f=>f.id!==id));renderFarmers();}
+
+function addNotif(title,body){const n=LS.get('rac_notifs')||[];n.unshift({id:Date.now(),title,body,time:'Just now',read:false});LS.set('rac_notifs',n);renderNotifBadge();}
+function renderNotifBadge(){const n=LS.get('rac_notifs')||[];document.getElementById('nav-notif-badge').textContent=n.filter(x=>!x.read).length||'';}
+function renderNotifications(){
+  const n=LS.get('rac_notifs')||[];const list=document.getElementById('notif-list');list.innerHTML='';
+  n.forEach(x=>{list.innerHTML+=`<div class="card" style="padding:16px 20px;display:flex;gap:14px;align-items:flex-start;${x.read?'opacity:.7':''}"><div style="font-size:24px;margin-top:2px;">${x.title.includes('⚠️')?'⚠️':x.title.includes('🌧️')?'🌧️':'🔔'}</div><div style="flex:1;"><div style="font-weight:600;font-size:15px;">${x.title}</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">${x.body}</div><div style="font-size:12px;color:var(--muted);margin-top:6px;">${x.time}</div></div>${!x.read?'<span class="card-badge badge-red">New</span>':''}</div>`;});
+}
+function markAllRead(){const n=LS.get('rac_notifs')||[];n.forEach(x=>x.read=true);LS.set('rac_notifs',n);renderNotifications();renderNotifBadge();}
+function clearNotifs(){LS.set('rac_notifs',[]);renderNotifications();renderNotifBadge();}
+
+function renderProfile(){const u=currentUser;document.getElementById('prof-name').textContent=u.name;document.getElementById('prof-email').textContent=u.email;document.getElementById('prof-role-badge').textContent=roleEmoji(u.role)+' '+roleLabel(u.role);document.getElementById('prof-avatar').textContent=u.name[0];}
+function saveProfile(){
+  const users=LS.get('rac_users')||[];const idx=users.findIndex(u=>u.id===currentUser.id);
+  users[idx].name=document.getElementById('edit-name').value;users[idx].phone=document.getElementById('edit-phone').value;users[idx].crops=document.getElementById('edit-crops').value;
+  LS.set('rac_users',users);currentUser=users[idx];LS.set('rac_session',{userId:currentUser.id,token:'jwt_'+Date.now()});
+  document.getElementById('sb-username').textContent=currentUser.name;renderProfile();logAction(currentUser.name,'Profile Update','Profile updated','info');toast('✅ Profile saved!');
+}
+function changePassword(){
+  const oldP=document.getElementById('old-pwd').value;const newP=document.getElementById('new-pwd').value;const newP2=document.getElementById('new-pwd2').value;
+  if(!verifyPwd(oldP,currentUser.pwd)){toast('❌ Current password incorrect.','warning');return;}
+  if(newP!==newP2){toast('❌ Passwords do not match.','warning');return;}
+  if(!/(?=.*[A-Z])(?=.*\d).{8,}/.test(newP)){toast('❌ Password must be 8+ chars with uppercase and number.','warning');return;}
+  const users=LS.get('rac_users')||[];const idx=users.findIndex(u=>u.id===currentUser.id);users[idx].pwd=hashPwd(newP);LS.set('rac_users',users);currentUser=users[idx];
+  logAction(currentUser.name,'Password Change','Password updated','success');toast('✅ Password updated!');
+}
+
+function toggleSetting(id){document.getElementById(id).classList.toggle('on');}
+function calcStorage(){let t=0;for(let k in localStorage)if(localStorage.hasOwnProperty(k))t+=localStorage[k].length*2;const kb=(t/1024).toFixed(1);document.getElementById('storage-used').textContent=kb+'KB / 5MB';document.getElementById('storage-bar').style.width=Math.min((t/(5*1024*1024))*100,100)+'%';}
+function syncNow(){toast('🔄 Data synced successfully!');}
+function exportData(){const data={users:LS.get('rac_users'),advisories:LS.get('rac_advisories'),alerts:LS.get('rac_alerts'),logs:LS.get('rac_logs')};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ruralAgriConnect_export.json';a.click();}
+function clearAllData(){if(confirm('⚠️ Delete ALL locally stored data? This cannot be undone.')){localStorage.clear();location.reload();}}
+function setLanguage(lang){toast(lang==='zu'?'🌍 Ulimi luguqulwe ngempumelelo!':'🌍 Language set to English.');}
+
+function renderAdmin(){
+  const users=LS.get('rac_users')||[];
+  document.getElementById('admin-total').textContent=users.length;
+  document.getElementById('admin-farmers').textContent=users.filter(u=>u.role==='farmer').length;
+  document.getElementById('admin-officers').textContent=users.filter(u=>u.role==='admin').length;
+  document.getElementById('admin-failed').textContent=(LS.get('rac_logs')||[]).filter(l=>l.action==='Failed Login').length;
+  const tbody=document.getElementById('admin-users-tbody');tbody.innerHTML='';
+  users.forEach(u=>{tbody.innerHTML+=`<tr><td><b>${u.name}</b></td><td>${u.email}</td><td><span class="card-badge ${u.role==='admin'?'badge-red':'badge-green'}">${roleLabel(u.role)}</span></td><td>${u.region}</td><td><span class="card-badge badge-green">Active</span></td><td><button class="btn btn-outline btn-sm" onclick="toggleUserStatus(${u.id})">Toggle</button></td></tr>`;});
+}
+function toggleUserStatus(id){const users=LS.get('rac_users')||[];const u=users.find(u=>u.id===id);if(u){u.active=!u.active;LS.set('rac_users',users);renderAdmin();toast('User status updated.');}}
+
+function logAction(user,action,detail,type){const logs=LS.get('rac_logs')||[];const now=new Date();logs.unshift({time:now.toLocaleString('en-ZA',{dateStyle:'short',timeStyle:'short'}),user,action,detail,type});if(logs.length>100)logs.splice(100);LS.set('rac_logs',logs);}
+function renderLogs(){const logs=LS.get('rac_logs')||[];const tbody=document.getElementById('logs-tbody');tbody.innerHTML='';logs.forEach(l=>{tbody.innerHTML+=`<tr><td>${l.time}</td><td>${l.user}</td><td><b>${l.action}</b></td><td>${l.detail}</td><td><span class="card-badge ${l.type==='success'?'badge-green':l.type==='red'?'badge-red':l.type==='info'?'badge-blue':'badge-orange'}">${l.type}</span></td></tr>`;});}
+
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});});
+
+function toast(msg,type='success'){const t=document.createElement('div');t.textContent=msg;t.style.cssText=`position:fixed;bottom:24px;right:24px;background:${type==='warning'?'var(--orange)':'var(--forest)'};color:#fff;padding:14px 22px;border-radius:12px;font-size:14px;font-weight:600;z-index:9999;box-shadow:var(--shadow-lg);animation:fadeIn .3s ease;`;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
+
+function updateOnlineStatus(){const bar=document.getElementById('offline-bar');const dot=document.getElementById('sync-dot');const status=document.getElementById('sync-status');if(!navigator.onLine){bar.classList.add('show');dot.style.background='var(--orange)';status.textContent='Offline — Local Cache';}else{bar.classList.remove('show');dot.style.background='var(--moss)';status.textContent='Online — Synced';}}
+window.addEventListener('online',updateOnlineStatus);window.addEventListener('offline',updateOnlineStatus);updateOnlineStatus();
+
+seedData();
+if(autoLogin()){document.getElementById('auth-screen').classList.add('hidden');document.getElementById('app').classList.remove('hidden');setupUI();navigate('dashboard');}
+</script>
+</body>
+</html>
